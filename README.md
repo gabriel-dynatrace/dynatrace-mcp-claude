@@ -80,8 +80,15 @@ The **MCP server** gives Claude live access to your tenant data. The **plugin** 
 1. In your Dynatrace tenant, navigate to **Settings > Access tokens** (or search "Access tokens" in the main menu)
 2. Click **Generate new token**
 3. Give it a descriptive name (e.g., `claude-code-mcp`)
-4. Add the following token scopes at minimum:
+4. Add the following token scopes:
 
+   **MCP Gateway (required — without these the server won't connect)**
+   | Scope | Purpose |
+   |-------|---------|
+   | `mcp-gateway:servers:invoke` | Invoke the MCP server |
+   | `mcp-gateway:servers:read` | Read MCP server metadata |
+
+   **Storage / Observability Data**
    | Scope | Purpose |
    |-------|---------|
    | `storage:metrics:read` | Metric queries |
@@ -90,8 +97,20 @@ The **MCP server** gives Claude live access to your tenant data. The **plugin** 
    | `storage:bizevents:read` | Business event queries |
    | `storage:spans:read` | Trace/span queries |
    | `storage:entities:read` | Entity data |
+   | `events:read` | Platform events |
+   | `document:documents:read` | Notebook/document access |
 
-   > **Note:** Refer to the [official Dynatrace MCP Server documentation](https://docs.dynatrace.com/docs/shortlink/dynatrace-mcp-server) for the complete and up-to-date list of required scopes.
+   **Davis AI (required for AI-powered analysis tools)**
+   | Scope | Purpose |
+   |-------|---------|
+   | `davis:analyzers:execute` | Run Davis analyzers (anomaly detection, forecasting) |
+   | `davis:analyzers:read` | Read Davis analyzer results |
+   | `davis-copilot:conversations:execute` | Davis Copilot conversations |
+   | `davis-copilot:dql2nl:execute` | Translate DQL to natural language |
+   | `davis-copilot:nl2dql:execute` | Translate natural language to DQL |
+   | `davis-copilot:document-search:execute` | Davis document search |
+
+   > **Note:** Always verify the complete and current scope list against the [official Dynatrace MCP Server documentation](https://docs.dynatrace.com/docs/dynatrace-intelligence/dynatrace-mcp) — scopes may change with platform updates.
 
 5. Click **Generate token** and copy it immediately — it won't be shown again
 6. The token format looks like: `dt0s16.XXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
@@ -218,8 +237,13 @@ Run `claude mcp get dynatrace-mcp` to see the full list of available tools.
 
 ---
 
+**`mcp-gateway:servers:invoke` is the most commonly missed scope.**
+Without it, the token will authenticate but the MCP server won't actually be invocable — tools will silently fail or return permission errors.
+
+---
+
 **Token scopes are additive — start minimal, add as needed.**
-If you get permission errors on specific query types, check whether the relevant `storage:*:read` scope is included in your Platform Token.
+If a specific tool category stops working, check whether its corresponding scope group (`davis:*`, `storage:*:read`, etc.) is included in your token.
 
 ---
 
@@ -249,7 +273,7 @@ You can use the domain skills plugin without the MCP server (for offline DQL wri
 
 ## 11. Further Reading
 
-- [Dynatrace MCP Server — Official Documentation](https://docs.dynatrace.com/docs/shortlink/dynatrace-mcp-server)
+- [Dynatrace MCP Server — Official Documentation](https://docs.dynatrace.com/docs/dynatrace-intelligence/dynatrace-mcp)
 - [Claude Code CLI — MCP Setup](https://docs.anthropic.com/en/docs/claude-code/mcp)
 - [Dynatrace Platform Tokens](https://docs.dynatrace.com/docs/manage/identity-access-management/access-tokens-and-oauth-clients/access-tokens)
 - [DQL Reference](https://docs.dynatrace.com/docs/platform/grail/dynatrace-query-language)
