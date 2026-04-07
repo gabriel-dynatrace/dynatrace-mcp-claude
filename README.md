@@ -1,144 +1,166 @@
-# Dynatrace MCP + Claude Code Setup Guide
+# Dynatrace MCP Setup Guide — Claude Desktop & Claude Code
 
-Connect your Dynatrace environment to Claude Code CLI for live DQL queries, problem investigation, log analysis, and AI-assisted observability workflows.
+Connect your Dynatrace environment to Claude for live DQL queries, problem investigation, log analysis, and AI-assisted observability workflows. This guide covers two supported clients: the **Claude Desktop app** and **Claude Code CLI**.
 
 ---
 
 ## Table of Contents
 
-1. [Why Claude.ai Doesn't Work (and Claude Code Does)](#1-why-claudeai-doesnt-work-and-claude-code-does)
-2. [What You're Installing](#2-what-youre-installing)
-3. [Prerequisites](#3-prerequisites)
-4. [Step 1 — Create a Platform Token](#4-step-1--create-a-platform-token)
-5. [Step 2 — Find Your MCP Gateway URL](#5-step-2--find-your-mcp-gateway-url)
-6. [Step 3 — Register the MCP Server in Claude Code](#6-step-3--register-the-mcp-server-in-claude-code)
-7. [Step 4 — Install the Domain Skills Plugin](#7-step-4--install-the-domain-skills-plugin)
-8. [Step 5 — Verify & Test](#8-step-5--verify--test)
-9. [What You Can Do Now](#9-what-you-can-do-now)
-10. [Tips & Gotchas](#10-tips--gotchas)
-11. [Further Reading](#11-further-reading)
+1. [Which Claude Client Should I Use?](#1-which-claude-client-should-i-use)
+2. [Why Claude.ai Web Doesn't Work](#2-why-claudeai-web-doesnt-work)
+3. [Platform Token Scopes](#3-platform-token-scopes)
+4. [Option A — Claude Desktop App (Extension)](#4-option-a--claude-desktop-app-extension)
+5. [Option B — Claude Code CLI](#5-option-b--claude-code-cli)
+   - [Step 1 — Find Your MCP Gateway URL](#step-1--find-your-mcp-gateway-url)
+   - [Step 2 — Register the MCP Server](#step-2--register-the-mcp-server)
+   - [Step 3 — Install the Domain Skills Plugin](#step-3--install-the-domain-skills-plugin)
+   - [Step 4 — Verify & Test](#step-4--verify--test)
+6. [What You Can Do Now](#6-what-you-can-do-now)
+7. [Tips & Gotchas](#7-tips--gotchas)
+8. [Further Reading](#8-further-reading)
 
 ---
 
-## 1. Why Claude.ai Doesn't Work (and Claude Code Does)
+## 1. Which Claude Client Should I Use?
 
-If you've tried adding the Dynatrace MCP server through claude.ai and seen "Needs authentication" — that's expected, and here's why.
-
-### The short answer: authentication protocol mismatch
-
-| | Claude Code CLI | claude.ai (web) |
+| | Claude Desktop App | Claude Code CLI |
 |---|---|---|
-| MCP auth method | Bearer token (any header) | OAuth 2.0 only |
-| Dynatrace auth method | Platform Token (Bearer) | Platform Token (Bearer) |
-| Works? | **Yes** | **No — not yet** |
+| Who it's for | Anyone using the Claude desktop app | Developers / technical users in the terminal |
+| Setup method | Extensions UI (no config files) | `claude mcp add` command |
+| Auth supported | Platform Token **or** OAuth | Platform Token (Bearer header) |
+| Works on claude.ai web? | No — see below | No — see below |
 
-**Claude Code CLI** supports HTTP MCP servers with arbitrary `Authorization` headers. You can pass a Dynatrace Platform Token directly as a Bearer token and it connects immediately.
-
-**Claude.ai** requires MCP servers to implement OAuth 2.0 with a public discovery endpoint. Dynatrace's MCP gateway currently uses Platform Token (Bearer) authentication, not OAuth — so claude.ai can't complete the auth handshake.
-
-> Until Dynatrace adds OAuth 2.0 support to the MCP gateway, or Anthropic adds user-supplied Bearer token support to claude.ai MCP, this only works in **Claude Code CLI**.
+Use **Claude Desktop** if you want a point-and-click setup. Use **Claude Code CLI** if you want tenant access available across all your coding projects in the terminal.
 
 ---
 
-## 2. What You're Installing
+## 2. Why Claude.ai Web Doesn't Work
 
-There are two separate components, and both are needed for the full experience:
+If you've tried adding Dynatrace through claude.ai in a browser and seen "Needs authentication" — that's expected.
 
-```
-Claude Code CLI
-    │
-    ├── HTTP MCP server: dynatrace-mcp
-    │   ├── Cloud-hosted on your Dynatrace tenant
-    │   ├── Auth: Platform Token (Bearer)
-    │   └── Provides: live DQL execution, problems, logs, metrics,
-    │                 traces, K8s events, security vulnerabilities, Davis AI
-    │
-    └── Plugin: dynatrace@dynatrace-for-ai
-        ├── Installed locally via claude plugin install
-        └── Provides: Dynatrace domain skills — DQL patterns,
-                      observability workflows, query guidance
-```
+| | Claude Desktop App | Claude Code CLI | claude.ai (web) |
+|---|---|---|---|
+| Auth method | Platform Token or OAuth | Bearer token (header) | OAuth 2.0 only |
+| Works? | **Yes** | **Yes** | **No — not yet** |
 
-The **MCP server** gives Claude live access to your tenant data. The **plugin** gives Claude Dynatrace-specific knowledge and query patterns so it can reason about that data intelligently.
+**Claude.ai web** requires MCP servers to complete an OAuth 2.0 handshake with a public discovery endpoint. The Dynatrace MCP gateway does not currently expose a compatible OAuth endpoint for browser-based sessions — so the connection stalls at "Needs authentication."
+
+The **Desktop app** and **Claude Code CLI** both support Platform Token (Bearer) authentication directly, which is why they work.
+
+> This limitation is on the Dynatrace MCP gateway side, not Claude's. Until Dynatrace adds a compatible OAuth 2.0 endpoint, the web client cannot connect.
 
 ---
 
-## 3. Prerequisites
+## 3. Platform Token Scopes
 
-- A **Dynatrace SaaS environment** (any production or trial tenant)
-- **Node.js 18+** installed ([nodejs.org](https://nodejs.org))
-- **Claude Code CLI** installed with an active Claude Pro, Team, or Enterprise subscription:
+Regardless of which client you use, create a **Platform Token** in your Dynatrace tenant with the following scopes:
+
+In your Dynatrace tenant: **Settings > Access tokens > Generate new token** (name it e.g. `claude-mcp`)
+
+**MCP Gateway (required — without these the server won't connect)**
+| Scope | Purpose |
+|-------|---------|
+| `mcp-gateway:servers:invoke` | Invoke the MCP server |
+| `mcp-gateway:servers:read` | Read MCP server metadata |
+
+**Storage / Observability Data**
+| Scope | Purpose |
+|-------|---------|
+| `storage:metrics:read` | Metric queries |
+| `storage:logs:read` | Log queries |
+| `storage:events:read` | Event queries |
+| `storage:bizevents:read` | Business event queries |
+| `storage:spans:read` | Trace/span queries |
+| `storage:entities:read` | Entity data |
+| `events:read` | Platform events |
+| `document:documents:read` | Notebook/document access |
+
+**Davis AI (required for AI-powered analysis tools)**
+| Scope | Purpose |
+|-------|---------|
+| `davis:analyzers:execute` | Run Davis analyzers (anomaly detection, forecasting) |
+| `davis:analyzers:read` | Read Davis analyzer results |
+| `davis-copilot:conversations:execute` | Davis Copilot conversations |
+| `davis-copilot:dql2nl:execute` | Translate DQL to natural language |
+| `davis-copilot:nl2dql:execute` | Translate natural language to DQL |
+| `davis-copilot:document-search:execute` | Davis document search |
+
+> Copy the generated token immediately — it won't be shown again. Token format: `dt0s16.XXXX.XXXX...`
+
+> **Note:** Always verify the complete and current scope list against the [official Dynatrace MCP Server documentation](https://docs.dynatrace.com/docs/dynatrace-intelligence/dynatrace-mcp) — scopes may change with platform updates.
+
+---
+
+## 4. Option A — Claude Desktop App (Extension)
+
+This is the easiest setup path — no terminal required.
+
+### Prerequisites
+- [Claude Desktop app](https://claude.ai/download) installed (Mac or Windows)
+- An active Claude Pro, Team, or Enterprise subscription
+- A Dynatrace Platform Token (see [Section 3](#3-platform-token-scopes))
+
+### Steps
+
+**1. Open Extensions**
+
+In the Claude Desktop app, go to **Settings > Extensions** (under the "Desktop app" section of the sidebar).
+
+**2. Browse and install**
+
+Click **Browse extensions**, search for `dynatrace`, and select **Dynatrace MCP Server**. Click to install it.
+
+**3. Configure**
+
+Click **Configure** next to the installed extension and fill in the fields:
+
+| Field | Value |
+|-------|-------|
+| **Dynatrace Environment URL** *(Required)* | Your tenant base URL: `https://your-env-id.apps.dynatracelabs.com/` — do not use classic URLs |
+| **Dynatrace Platform Token** *(Optional)* | Your `dt0s16.*` token — recommended over OAuth for simplicity |
+| **OAuth Client ID** *(Optional)* | Leave blank unless using OAuth-based auth |
+| **OAuth Client Secret** *(Optional)* | Leave blank unless using OAuth-based auth |
+| **Grail Query Budget (GB)** | Max GB scanned per session (default: `1000`). Set to `-1` to disable the limit |
+| **Disable Telemetry** | Toggle on to stop usage events being sent to Dynatrace |
+
+**4. Save and enable**
+
+Click **Save**. The toggle at the top of the configuration page should show **Enabled**.
+
+**5. Test it**
+
+Start a new conversation in the Claude Desktop app and try:
+> "Are there any open problems in my Dynatrace environment right now?"
+
+If Claude queries your tenant and returns results, the extension is working.
+
+---
+
+## 5. Option B — Claude Code CLI
+
+Claude Code CLI requires a terminal and Node.js, but gives you Dynatrace access automatically across all your coding projects.
+
+### Prerequisites
+- **Node.js 18+** ([nodejs.org](https://nodejs.org))
+- **Claude Code CLI** with an active Claude Pro, Team, or Enterprise subscription:
   ```bash
   npm install -g @anthropic-ai/claude-code
   ```
-- A terminal and basic comfort running shell commands
+- A Dynatrace Platform Token (see [Section 3](#3-platform-token-scopes))
 
----
+### Step 1 — Find Your MCP Gateway URL
 
-## 4. Step 1 — Create a Platform Token
-
-1. In your Dynatrace tenant, navigate to **Settings > Access tokens** (or search "Access tokens" in the main menu)
-2. Click **Generate new token**
-3. Give it a descriptive name (e.g., `claude-code-mcp`)
-4. Add the following token scopes:
-
-   **MCP Gateway (required — without these the server won't connect)**
-   | Scope | Purpose |
-   |-------|---------|
-   | `mcp-gateway:servers:invoke` | Invoke the MCP server |
-   | `mcp-gateway:servers:read` | Read MCP server metadata |
-
-   **Storage / Observability Data**
-   | Scope | Purpose |
-   |-------|---------|
-   | `storage:metrics:read` | Metric queries |
-   | `storage:logs:read` | Log queries |
-   | `storage:events:read` | Event queries |
-   | `storage:bizevents:read` | Business event queries |
-   | `storage:spans:read` | Trace/span queries |
-   | `storage:entities:read` | Entity data |
-   | `events:read` | Platform events |
-   | `document:documents:read` | Notebook/document access |
-
-   **Davis AI (required for AI-powered analysis tools)**
-   | Scope | Purpose |
-   |-------|---------|
-   | `davis:analyzers:execute` | Run Davis analyzers (anomaly detection, forecasting) |
-   | `davis:analyzers:read` | Read Davis analyzer results |
-   | `davis-copilot:conversations:execute` | Davis Copilot conversations |
-   | `davis-copilot:dql2nl:execute` | Translate DQL to natural language |
-   | `davis-copilot:nl2dql:execute` | Translate natural language to DQL |
-   | `davis-copilot:document-search:execute` | Davis document search |
-
-   > **Note:** Always verify the complete and current scope list against the [official Dynatrace MCP Server documentation](https://docs.dynatrace.com/docs/dynatrace-intelligence/dynatrace-mcp) — scopes may change with platform updates.
-
-5. Click **Generate token** and copy it immediately — it won't be shown again
-6. The token format looks like: `dt0s16.XXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
-
-> **Security tip:** Store the token in a password manager or your OS keyring. Never paste it directly into shell commands — use environment variables instead (shown in Step 3).
-
----
-
-## 5. Step 2 — Find Your MCP Gateway URL
-
-Your Dynatrace tenant exposes an MCP gateway at a fixed path. The URL is derived from your tenant's base URL:
+Your tenant exposes the MCP gateway at a fixed path — just substitute your environment ID:
 
 ```
 https://<your-env-id>.apps.dynatracelabs.com/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp
 ```
 
-**To find your `env-id`:** look at your browser's URL bar when logged into Dynatrace. It's the subdomain before `.apps.dynatracelabs.com`.
+Your `env-id` is the subdomain in your browser's URL bar when logged into Dynatrace (e.g. `abc12345` from `https://abc12345.apps.dynatracelabs.com`).
 
-Example: if your tenant URL is `https://abc12345.apps.dynatracelabs.com`, then your MCP gateway URL is:
-```
-https://abc12345.apps.dynatracelabs.com/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp
-```
+### Step 2 — Register the MCP Server
 
----
-
-## 6. Step 3 — Register the MCP Server in Claude Code
-
-Set your credentials as environment variables first to keep them out of your shell history:
+Set your credentials as environment variables to keep them out of your shell history:
 
 ```bash
 export DT_PLATFORM_TOKEN="dt0s16.YOUR_TOKEN_HERE"
@@ -156,34 +178,19 @@ claude mcp add dynatrace-mcp \
 ```
 
 - `--transport http` — Dynatrace MCP is a remote HTTP server, not a local process
-- `--scope user` — registers at user scope, available in **all** your Claude Code projects (omit for local/project-only scope)
+- `--scope user` — makes it available in **all** your Claude Code projects (omit for current project only)
 - `--header` — passes your Platform Token as a Bearer token on every request
 
----
+### Step 3 — Install the Domain Skills Plugin
 
-## 7. Step 4 — Install the Domain Skills Plugin
-
-The plugin adds Dynatrace-specific knowledge and reasoning skills. It's separate from the MCP server and doesn't require tenant credentials.
-
-**First, register the Dynatrace plugin marketplace:**
+The plugin adds Dynatrace-specific knowledge and DQL patterns. It's separate from the MCP server and doesn't require credentials.
 
 ```bash
 claude plugin marketplace add dynatrace-for-ai --source github:dynatrace/dynatrace-for-ai
-```
-
-**Then install the plugin:**
-
-```bash
 claude plugin install dynatrace@dynatrace-for-ai
 ```
 
-This installs at user scope and provides skills like DQL query patterns, observability troubleshooting workflows, and Dynatrace-specific reasoning.
-
----
-
-## 8. Step 5 — Verify & Test
-
-**Check that the MCP server connected:**
+### Step 4 — Verify & Test
 
 ```bash
 claude mcp list
@@ -194,28 +201,19 @@ You should see:
 dynatrace-mcp: https://your-env.apps.dynatracelabs.com/... (HTTP) - ✓ Connected
 ```
 
-If it shows `! Needs authentication`, double-check that your Platform Token has the correct scopes and hasn't expired.
+If it shows `! Needs authentication`, double-check that your token has the correct scopes and hasn't expired.
 
-**Test it in Claude Code:**
-
-Start Claude Code in any directory:
+Start Claude Code and test:
 ```bash
 claude
 ```
-
-Then try a prompt like:
-> "Fetch the last 10 log entries from my Dynatrace environment using DQL."
-
-Or to test problem data:
 > "Are there any open problems in my Dynatrace environment right now?"
-
-A successful response means live data is flowing from your tenant through the MCP server to Claude.
 
 ---
 
-## 9. What You Can Do Now
+## 6. What You Can Do Now
 
-Once connected, Claude Code can work directly with your tenant data. Capabilities include:
+Once connected (via either client), Claude can work directly with your tenant data:
 
 | What you can ask | Underlying tool |
 |---|---|
@@ -229,51 +227,50 @@ Once connected, Claude Code can work directly with your tenant data. Capabilitie
 | Ask questions about Dynatrace docs | `ask-dynatrace-docs` |
 | Find troubleshooting guides | `find-troubleshooting-guides` |
 
-Run `claude mcp get dynatrace-mcp` to see the full list of available tools.
-
 ---
 
-## 10. Tips & Gotchas
+## 7. Tips & Gotchas
 
 ---
 
 **`mcp-gateway:servers:invoke` is the most commonly missed scope.**
-Without it, the token will authenticate but the MCP server won't actually be invocable — tools will silently fail or return permission errors.
+Without it, the token authenticates but the MCP server can't actually be invoked — tools will silently fail or return permission errors.
 
 ---
 
-**Token scopes are additive — start minimal, add as needed.**
-If a specific tool category stops working, check whether its corresponding scope group (`davis:*`, `storage:*:read`, etc.) is included in your token.
+**Desktop app: use your base tenant URL, not the full gateway path.**
+The extension only needs `https://your-env-id.apps.dynatracelabs.com/`. The Claude Code CLI needs the full `/platform-reserved/mcp-gateway/...` path.
 
 ---
 
-**The `--scope user` flag matters.**
-Without it, the MCP server is registered with local scope (only available in the current project directory). Use `--scope user` to make it available everywhere.
+**Claude Code: the `--scope user` flag matters.**
+Without it, the MCP server is only available in the current directory. Use `--scope user` to make it available everywhere.
 
 ---
 
 **Platform Tokens can expire.**
-If Claude Code suddenly loses connection to your tenant, run `claude mcp list` to check status. If it shows `! Needs authentication`, your token may have expired — generate a new one and re-run the `claude mcp add` command.
+If your connection drops, run `claude mcp list` (CLI) or check **Settings > Extensions** (Desktop). Regenerate the token and re-enter it if expired.
 
 ---
 
-**Re-registering an existing server.**
-If you need to update the token or URL, remove the old registration first:
+**Grail Query Budget (Desktop app).**
+The default budget is 1000 GB per session. For general use this is fine. Set to `-1` to disable the limit entirely.
+
+---
+
+**Re-registering the CLI server.**
+To update your token or URL, remove the old entry first:
 ```bash
 claude mcp remove dynatrace-mcp -s user
 ```
-Then re-run the `claude mcp add` command with the updated values.
+Then re-run the `claude mcp add` command.
 
 ---
 
-**The plugin and MCP server are independent.**
-You can use the domain skills plugin without the MCP server (for offline DQL writing/guidance), or the MCP server without the plugin. Both together give the best experience.
-
----
-
-## 11. Further Reading
+## 8. Further Reading
 
 - [Dynatrace MCP Server — Official Documentation](https://docs.dynatrace.com/docs/dynatrace-intelligence/dynatrace-mcp)
+- [Claude Desktop App — Extensions](https://claude.ai/download)
 - [Claude Code CLI — MCP Setup](https://docs.anthropic.com/en/docs/claude-code/mcp)
 - [Dynatrace Platform Tokens](https://docs.dynatrace.com/docs/manage/identity-access-management/access-tokens-and-oauth-clients/access-tokens)
 - [DQL Reference](https://docs.dynatrace.com/docs/platform/grail/dynatrace-query-language)
