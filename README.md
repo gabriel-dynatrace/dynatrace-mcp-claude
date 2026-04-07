@@ -165,16 +165,12 @@ Your `env-id` is the subdomain in your browser's URL bar when logged into Dynatr
 
 ### Step 2 — Register the MCP Server
 
-Set your credentials as environment variables to keep them out of your shell history:
+Set your credentials as environment variables, then run the registration command. The shell expands the variables at runtime, so the **actual token value** (not the variable name) gets written into `~/.claude/settings.json`.
 
 ```bash
 export DT_PLATFORM_TOKEN="dt0s16.YOUR_TOKEN_HERE"
 export DT_ENV_URL="https://your-env-id.apps.dynatracelabs.com"
-```
 
-Then register the MCP server:
-
-```bash
 claude mcp add dynatrace-mcp \
   --transport http \
   --scope user \
@@ -185,6 +181,8 @@ claude mcp add dynatrace-mcp \
 - `--transport http` — Dynatrace MCP is a remote HTTP server, not a local process
 - `--scope user` — makes it available in **all** your Claude Code projects (omit for current project only)
 - `--header` — passes your Platform Token as a Bearer token on every request
+
+> The environment variables are only needed during setup. Once registered, the token is stored in `~/.claude/settings.json` and you do not need to set them again.
 
 ### Step 3 — Install the Domain Skills Plugin
 
