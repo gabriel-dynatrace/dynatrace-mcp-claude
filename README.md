@@ -121,7 +121,7 @@ Click **Configure** next to the installed extension and fill in the fields:
 
 | Field | Value |
 |-------|-------|
-| **Dynatrace Environment URL** *(Required)* | Your tenant base URL: `https://your-env-id.apps.dynatracelabs.com/` — do not use classic URLs |
+| **Dynatrace Environment URL** *(Required)* | Your tenant base URL: `https://your-env-id.apps.dynatrace.com/` — do not use classic URLs |
 | **Dynatrace Platform Token** *(Optional)* | Your `dt0s16.*` token — recommended over OAuth for simplicity |
 | **OAuth Client ID** *(Optional)* | Leave blank unless using OAuth-based auth |
 | **OAuth Client Secret** *(Optional)* | Leave blank unless using OAuth-based auth |
@@ -158,10 +158,10 @@ Claude Code CLI requires a terminal and Node.js, but gives you Dynatrace access 
 Your tenant exposes the MCP gateway at a fixed path — just substitute your environment ID:
 
 ```
-https://<your-env-id>.apps.dynatracelabs.com/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp
+https://<your-env-id>.apps.dynatrace.com/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp
 ```
 
-Your `env-id` is the subdomain in your browser's URL bar when logged into Dynatrace (e.g. `abc12345` from `https://abc12345.apps.dynatracelabs.com`).
+Your `env-id` is the subdomain in your browser's URL bar when logged into Dynatrace (e.g. `abc12345` from `https://abc12345.apps.dynatrace.com`).
 
 ### Step 2 — Register the MCP Server
 
@@ -169,7 +169,7 @@ Set your credentials as environment variables, then run the registration command
 
 ```bash
 export DT_PLATFORM_TOKEN="dt0s16.YOUR_TOKEN_HERE"
-export DT_ENV_URL="https://your-env-id.apps.dynatracelabs.com"
+export DT_ENV_URL="https://your-env-id.apps.dynatrace.com"
 
 claude mcp add dynatrace-mcp \
   --transport http \
@@ -201,7 +201,7 @@ claude mcp list
 
 You should see:
 ```
-dynatrace-mcp: https://your-env.apps.dynatracelabs.com/... (HTTP) - ✓ Connected
+dynatrace-mcp: https://your-env.apps.dynatrace.com/... (HTTP) - ✓ Connected
 ```
 
 If it shows `! Needs authentication`, double-check that your token has the correct scopes and hasn't expired.
@@ -242,7 +242,7 @@ Without it, the token authenticates but the MCP server can't actually be invoked
 ---
 
 **Desktop app: use your base tenant URL, not the full gateway path.**
-The extension only needs `https://your-env-id.apps.dynatracelabs.com/`. The Claude Code CLI needs the full `/platform-reserved/mcp-gateway/...` path.
+The extension only needs `https://your-env-id.apps.dynatrace.com/`. The Claude Code CLI needs the full `/platform-reserved/mcp-gateway/...` path.
 
 ---
 
