@@ -53,7 +53,7 @@ The **Desktop app** and **Claude Code CLI** both support Platform Token (Bearer)
 
 ## 3. Platform Token Scopes
 
-Regardless of which client you use, you'll need a **Platform Token** with the scopes listed below.
+Regardless of which client you use, create a **Platform Token** in your Dynatrace tenant with the following scopes:
 
 Platform Tokens are managed in **Account Management > Platform tokens**. That page lists all tokens created by users in your account, but you cannot create one directly there.
 
@@ -252,7 +252,7 @@ Without it, the MCP server is only available in the current directory. Use `--sc
 ---
 
 **Platform Tokens can expire.**
-If your connection drops, run `claude mcp list` (CLI) or check **Settings > Extensions** (Desktop). Regenerate the token via your user profile in Account Management and re-enter it if expired.
+If your connection drops, run `claude mcp list` (CLI) or check **Settings > Extensions** (Desktop). Regenerate the token and re-enter it if expired.
 
 ---
 
